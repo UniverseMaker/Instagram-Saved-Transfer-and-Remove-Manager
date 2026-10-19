@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.cdninstagram.com https://*.fbcdn.net" />
+  <title>Instagram 저장됨 관리 도구</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- ===== 왼쪽 제어 패널 ===== -->
+  <div id="panel">
+    <header>
+      <h1>저장됨 관리 도구</h1>
+      <p class="sub">내보내기 · 목록 관리 · 저장 해제 · 다른 계정으로 복원</p>
+    </header>
+
+    <nav class="tabs">
+      <button data-key="a" class="tab">
+        <span class="tab-title">계정 A</span>
+        <span class="tab-status" id="st-a">확인 중…</span>
+      </button>
+      <button data-key="b" class="tab">
+        <span class="tab-title">계정 B</span>
+        <span class="tab-status" id="st-b">확인 중…</span>
+      </button>
+    </nav>
+
+    <section class="browserbar">
+      <button data-nav="back" title="뒤로">←</button>
+      <button data-nav="forward" title="앞으로">→</button>
+      <button data-nav="reload" title="새로고침">⟳</button>
+      <button data-nav="home" title="홈">⌂</button>
+      <input id="url" spellcheck="false" />
+      <button id="logout" class="ghost lockable" title="이 계정 세션 삭제">로그아웃</button>
+    </section>
+
+    <section class="card">
+      <h2>이 계정의 저장됨 <span class="who" id="who"></span></h2>
+      <div class="btns">
+        <button id="btn-manager" class="primary lockable">목록 관리 열기</button>
+        <button id="btn-export" class="lockable">CSV로 내보내기</button>
+        <button id="btn-unsave-all" class="danger lockable">전체 저장 해제…</button>
+      </div>
+      <p class="hint">오른쪽 화면에서 로그인한 계정 기준으로 동작합니다. 목록을 불러오면 <b>문서\InstaSavedMigrator\backup</b>에 백업 CSV가 자동 저장됩니다.</p>
+    </section>
+
+    <section class="card">
+      <h2>CSV로 실행</h2>
+      <div class="row">
+        <button id="btn-load" class="lockable">CSV 불러오기</button>
+        <span id="csv-name" class="muted ellipsis">선택된 파일 없음</span>
+      </div>
+      <div class="stat muted" id="csv-stat"></div>
+      <div class="btns">
+        <button id="btn-run-save" class="lockable needs-csv">이 계정에 저장 (복원)</button>
+        <button id="btn-run-unsave" class="lockable needs-csv">이 계정에서 저장 해제</button>
+      </div>
+      <p class="hint">중단해도 같은 CSV를 다시 불러와 실행하면 이어서 진행됩니다.</p>
+    </section>
+
+    <details class="card">
+      <summary>속도 / 안전 설정</summary>
+      <div class="grid">
+        <label>작업 간격(초)
+          <span class="pair"><input type="number" id="delayMin" value="15" min="1" /> ~ <input type="number" id="delayMax" value="40" min="1" /></span>
+        </label>
+        <label>N개마다 휴식 <input type="number" id="batchSize" value="40" min="1" /></label>
+        <label>휴식 시간(분) <input type="number" id="breakMin" value="10" min="0" /></label>
+        <label>한 번 실행 최대 <input type="number" id="maxPerRun" value="200" min="1" /></label>
+        <label class="wide check"><input type="checkbox" id="oldestFirst" checked /> 저장 시 오래된 것부터 (원래 순서 유지)</label>
+        <label class="wide">방식
+          <select id="mode">
+            <option value="click">게시물 열고 버튼 클릭 (권장)</option>
+            <option value="api">웹 API로 요청 (빠름·실험적)</option>
+          </select>
+        </label>
+      </div>
+    </details>
+
+    <section class="card" id="job-card">
+      <div class="jobhead">
+        <h2 id="job-title">대기 중</h2>
+        <button class="stop" disabled>중지</button>
+      </div>
+      <div class="bar"><div class="bar-fill"></div></div>
+      <div class="stat job-stat">—</div>
+      <div class="stat muted countdown"></div>
+    </section>
+
+    <section class="logwrap">
+      <div class="loghead"><h2>로그</h2><button id="clear-log" class="ghost">지우기</button></div>
+      <div id="log"></div>
+    </section>
+  </div>
+
+  <!-- ===== 목록 관리 (창 전체) ===== -->
+  <div id="manager" hidden>
+    <div class="m-top">
+      <button id="m-close">← 브라우저로</button>
+      <h2 id="m-title">저장됨 목록</h2>
+      <span class="muted ellipsis" id="m-source"></span>
+      <span class="spacer"></span>
+      <button data-fetch="a" class="lockable">계정 A 목록 불러오기</button>
+      <button data-fetch="b" class="lockable">계정 B 목록 불러오기</button>
+      <button id="m-open-csv" class="lockable">CSV 열기</button>
+    </div>
+
+    <div class="m-jobline" hidden>
+      <span class="job-title-mirror"></span>
+      <span class="job-stat"></span>
+      <span class="muted countdown"></span>
+      <button class="stop" disabled>중지</button>
+    </div>
+
+    <div class="m-filters">
+      <input id="f-q" type="search" placeholder="검색: 캡션, @계정, 이름, shortcode" />
+      <select id="f-col"></select>
+      <select id="f-type">
+        <option value="">모든 유형</option>
+        <option value="photo">사진</option>
+        <option value="carousel">여러 장</option>
+        <option value="video">동영상</option>
+        <option value="reel">릴스</option>
+      </select>
+      <select id="f-sort">
+        <option value="saved_new">최근 저장순</option>
+        <option value="saved_old">오래된 저장순</option>
+        <option value="taken_new">게시일 최신순</option>
+        <option value="taken_old">게시일 오래된순</option>
+        <option value="user">계정 이름순</option>
+      </select>
+    </div>
+
+    <div class="m-sel">
+      <span id="m-count">—</span>
+      <button id="sel-visible">보이는 항목 모두 선택</button>
+      <button id="sel-none">선택 해제</button>
+      <button id="sel-invert">선택 반전</button>
+      <span class="muted">클릭: 선택 · Shift+클릭: 범위 선택 · 왼쪽 □: 줄 선택(Shift: 여러 줄) · Ctrl+A: 보이는 항목 전체</span>
+    </div>
+
+    <div id="grid"><div class="empty">목록이 없습니다. 위에서 계정 목록을 불러오거나 CSV를 여세요.</div></div>
+
+    <div class="m-actions">
+      <label>실행 계정
+        <select id="run-key">
+          <option value="a">계정 A</option>
+          <option value="b">계정 B</option>
+        </select>
+      </label>
+      <button id="act-unsave" class="danger lockable">선택 항목 저장 해제</button>
+      <button id="act-save" class="primary lockable">선택 항목 저장</button>
+      <span class="spacer"></span>
+      <button id="act-csv">선택 항목 CSV 저장</button>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

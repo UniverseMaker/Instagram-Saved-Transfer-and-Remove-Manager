@@ -1,0 +1,62 @@
+{
+  "name": "insta-saved-migrator",
+  "productName": "InstaSavedManager",
+  "version": "0.2.2",
+  "description": "Desktop app to export, manage, bulk-unsave, and migrate Instagram saved posts between accounts.",
+  "author": "UniverseMaker",
+  "license": "MIT",
+  "homepage": "https://github.com/UniverseMaker/Instagram-Saved-Transfer-and-Remove-Manager#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/UniverseMaker/Instagram-Saved-Transfer-and-Remove-Manager.git"
+  },
+  "bugs": {
+    "url": "https://github.com/UniverseMaker/Instagram-Saved-Transfer-and-Remove-Manager/issues"
+  },
+  "keywords": [
+    "instagram",
+    "saved-posts",
+    "bookmarks",
+    "export",
+    "csv",
+    "migration",
+    "electron"
+  ],
+  "main": "src/main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win portable nsis",
+    "screenshots": "electron scripts/screenshots/shots.js"
+  },
+  "devDependencies": {
+    "electron": "^38.0.0",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.universemaker.instasavedmanager",
+    "productName": "InstaSavedManager",
+    "files": [
+      "src/**/*",
+      "build/icon.png",
+      "package.json"
+    ],
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "win": {
+      "icon": "build/icon.ico",
+      "signAndEditExecutable": true
+    },
+    "portable": {
+      "artifactName": "InstaSavedManager-${version}-portable.exe"
+    },
+    "nsis": {
+      "artifactName": "InstaSavedManager-${version}-setup.exe",
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "shortcutName": "Instagram 저장됨 관리 도구"
+    }
+  }
+}

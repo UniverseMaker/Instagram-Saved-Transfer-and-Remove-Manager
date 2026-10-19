@@ -1,0 +1,60 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<style>
+  :root { --bg: #fafafa; --card: #fff; --line: #dbdbdb; --text: #111; --muted: #737373; --accent: #d6246e; }
+  :root.dark { --bg: #0b0b0c; --card: #000; --line: #262626; --text: #f5f5f5; --muted: #a8a8a8; --accent: #f0468c; }
+  * { box-sizing: border-box; }
+  body { margin: 0; height: 100vh; background: var(--bg); color: var(--text); font: 14px/1.4 "Segoe UI", "Malgun Gothic", sans-serif; display: flex; }
+  .rail { width: 72px; border-right: 1px solid var(--line); display: flex; flex-direction: column; align-items: center; padding: 26px 0; gap: 26px; }
+  .rail i { width: 20px; height: 20px; border: 2px solid var(--text); border-radius: 6px; opacity: .35; }
+  .rail i.dot { border-radius: 50%; }
+  .main { flex: 1; display: grid; place-items: center; }
+  .post { width: 470px; background: var(--card); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .hd { display: flex; align-items: center; gap: 10px; padding: 12px 14px; }
+  .av { width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, #c471f5, #fa71cd); display: grid; place-items: center; font-size: 17px; }
+  .hd b { font-size: 14px; }
+  .hd span { color: var(--muted); font-size: 13px; }
+  .img { aspect-ratio: 1; background: linear-gradient(135deg, #c471f5, #fa71cd); display: grid; place-items: center; font-size: 150px; font-family: "Segoe UI Emoji"; position: relative; }
+  .img::after { content: ''; position: absolute; width: 220px; height: 220px; border-radius: 50%; background: #fff; opacity: .12; top: 40px; left: 60px; }
+  .acts { display: flex; align-items: center; gap: 16px; padding: 12px 14px 6px; position: relative; }
+  .acts svg { width: 26px; height: 26px; fill: none; stroke: var(--text); stroke-width: 2; }
+  .acts .sp { flex: 1; }
+  .save { position: relative; display: grid; place-items: center; }
+  .save svg { fill: var(--text); }
+  .ring { position: absolute; width: 50px; height: 50px; border-radius: 50%; border: 3px solid var(--accent); opacity: .9; }
+  .ring.r2 { width: 70px; height: 70px; opacity: .35; }
+  .cursor { position: absolute; right: 2px; top: 30px; width: 28px; height: 28px; }
+  .tip { position: absolute; right: -6px; top: -40px; background: var(--accent); color: #fff; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 12px; white-space: nowrap; }
+  .likes { padding: 4px 14px; font-weight: 600; }
+  .cap { padding: 2px 14px 16px; }
+  .cap b { margin-right: 6px; }
+  .note { position: fixed; bottom: 12px; right: 16px; font-size: 11px; color: var(--muted); }
+</style>
+</head>
+<body>
+  <nav class="rail"><i></i><i class="dot"></i><i></i><i></i><i class="dot"></i><i></i></nav>
+  <div class="main">
+    <article class="post">
+      <div class="hd"><div class="av">🎨</div><b>studio.lab</b><span>· 3일</span></div>
+      <div class="img">🎨</div>
+      <div class="acts">
+        <svg viewBox="0 0 24 24"><path d="M12 21s-7-4.5-9.3-9A5.2 5.2 0 0 1 12 6a5.2 5.2 0 0 1 9.3 6c-2.3 4.5-9.3 9-9.3 9z"/></svg>
+        <svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3.4-7l3.4-1-1 3.4A9 9 0 0 1 21 12z"/></svg>
+        <svg viewBox="0 0 24 24"><path d="M22 3 11 14M22 3l-7 19-4-8-8-4z"/></svg>
+        <span class="sp"></span>
+        <span class="save">
+          <span class="ring"></span><span class="ring r2"></span>
+          <svg viewBox="0 0 24 24"><path d="M5 3h14v18l-7-6-7 6z"/></svg>
+          <span class="tip">저장됨 ✓</span>
+          <svg class="cursor" viewBox="0 0 24 24" style="fill:#fff;stroke:#000;stroke-width:1.2"><path d="M4 2l16 9-7 1.5L10 20z"/></svg>
+        </span>
+      </div>
+      <div class="likes">좋아요 1,284개</div>
+      <div class="cap"><b>studio.lab</b>Poster grid system study #typography</div>
+    </article>
+  </div>
+  <div class="note">embedded browser — demo mock</div>
+</body>
+</html>
