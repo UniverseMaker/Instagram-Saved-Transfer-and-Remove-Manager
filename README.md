@@ -204,7 +204,8 @@ Instagram limits how fast an account can perform actions. This app is deliberate
 | What it does | Opens `instagram.com/p/<code>/`, finds the bookmark button, and sends a real mouse click | Sends the save/unsave request directly without opening the post |
 | Speed | Slower (page load + delay) | Faster |
 | Robustness | Same thing a person does | Depends on a request address that Instagram can change |
-| Fallback | — | If no working address is found, the run **switches to click mode by itself**. When a click succeeds, the app records the request Instagram actually sent and tries it in API mode next time |
+| How it learns | — | Instagram's web app sends save/unsave as a **GraphQL mutation** (e.g. `usePolarisSaveMediaUnsaveMutation`). The first post is handled by a click, the app records that request's format, and the following posts reuse it with only the post id swapped |
+| Fallback | — | If the request is rejected (for example an expired token), that post is clicked instead, the format is learned again, and the run returns to API mode. After 3 API failures in one run it stays in click mode |
 
 ## 🧩 How it works
 
@@ -325,9 +326,9 @@ Instagram has limited the account for now. Wait several hours to a day, then inc
 </details>
 
 <details>
-<summary><b>API mode logs HTTP 404</b></summary>
+<summary><b>API mode logs "API 요청 실패" or HTTP 404</b></summary>
 
-The guessed address doesn't exist for your account or region. The run switches to click mode automatically. After the first successful click, check the log for `🔎`: it shows either the address that was recorded or the kind of request Instagram used.
+That's expected on the first post or after a token expires. The post is handled by a click, the request format is learned again (`🔎 API 방식 학습: GraphQL …` in the log), and API mode resumes (`↩ … API 모드에 복귀`). If the log shows `변수에서 게시물 ID를 찾지 못해 학습 불가`, Instagram changed the request shape. Please open an issue with that line.
 </details>
 
 <details>
@@ -554,7 +555,8 @@ Automating actions may go against Instagram's Terms of Use and can lead to tempo
 | 하는 일 | `instagram.com/p/<code>/`를 열고 책갈피 버튼을 찾아 실제 마우스 클릭 | 게시물을 열지 않고 저장/해제 요청을 바로 보냄 |
 | 속도 | 느림 (페이지 로딩 + 간격) | 빠름 |
 | 안정성 | 사람이 하는 것과 같음 | 인스타그램이 바꿀 수 있는 요청 주소에 의존 |
-| 대비책 | — | 쓸 수 있는 주소를 못 찾으면 **스스로 클릭 방식으로 전환**합니다. 클릭이 성공하면 그때 인스타그램이 실제로 보낸 요청을 기록해 다음 API 방식에서 시도합니다 |
+| 학습 방식 | — | 인스타그램 웹은 저장/해제를 **GraphQL mutation**(예: `usePolarisSaveMediaUnsaveMutation`)으로 보냅니다. 첫 게시물은 클릭으로 처리하면서 그 요청 형식을 기록하고, 이후 게시물은 게시물 ID만 바꿔 같은 요청을 보냅니다 |
+| 대비책 | — | 요청이 거부되면(토큰 만료 등) 그 게시물은 클릭으로 처리하고 형식을 다시 학습한 뒤 API 방식으로 돌아옵니다. 한 번 실행에서 3번 실패하면 그 실행은 클릭 방식으로만 진행합니다 |
 
 ## 🧩 동작 원리
 
@@ -675,9 +677,9 @@ build/           앱 아이콘
 </details>
 
 <details>
-<summary><b>API 방식에서 HTTP 404</b></summary>
+<summary><b>API 방식에서 "API 요청 실패" 또는 HTTP 404</b></summary>
 
-추정한 요청 주소가 해당 계정이나 지역에 없는 경우입니다. 자동으로 클릭 방식으로 전환됩니다. 첫 클릭이 성공한 뒤 로그의 `🔎` 줄을 보면 기록된 주소나 인스타그램이 쓴 요청 종류를 확인할 수 있습니다.
+첫 게시물이거나 토큰이 만료된 경우 정상적인 동작입니다. 그 게시물은 클릭으로 처리되고 요청 형식을 다시 학습한 뒤(`🔎 API 방식 학습: GraphQL …`), API 방식으로 돌아옵니다(`↩ … API 모드에 복귀`). 로그에 `변수에서 게시물 ID를 찾지 못해 학습 불가`가 보이면 인스타그램이 요청 형식을 바꾼 것이니 그 줄을 이슈로 올려주세요.
 </details>
 
 <details>

@@ -146,7 +146,43 @@ function persistLearned() {
   if (storePath) { try { fs.writeFileSync(storePath, JSON.stringify(learned, null, 1), 'utf8'); } catch {} }
 }
 
-// 클릭 직후 브라우저가 보낸 POST 요청에서 저장/해제 API 주소를 찾아 기억
+// ---- GraphQL 학습: 클릭 때 보낸 mutation 요청을 틀로 저장하고, 게시물 ID만 바꿔 재현 ----
+const gqlKey = (action) => `graphql:${action}`;
+
+function isActionMutation(friendly, action) {
+  if (!/Mutation/i.test(friendly || '')) return false;
+  return action === 'unsave' ? /unsave/i.test(friendly) : /save/i.test(friendly) && !/unsave/i.test(friendly);
+}
+
+// variables 안에서 게시물 pk가 들어 있는 위치(키 경로)를 찾는다
+function findPkPath(obj, pk, path = []) {
+  if (obj === null || obj === undefined) return null;
+  if (typeof obj !== 'object') return String(obj) === pk ? path : null;
+  for (const [k, v] of Object.entries(obj)) {
+    const f = findPkPath(v, pk, [...path, k]);
+    if (f) return f;
+  }
+  return null;
+}
+
+function setPath(obj, path, value) {
+  let o = obj;
+  for (let i = 0; i < path.length - 1; i++) o = o[path[i]];
+  o[path[path.length - 1]] = value;
+}
+
+function buildGraphqlTemplate(r, pk) {
+  const params = Object.fromEntries(new URLSearchParams(r.body || ''));
+  let vars;
+  try { vars = JSON.parse(params.variables || ''); } catch { return null; }
+  const mediaPath = pk ? findPkPath(vars, pk) : null;
+  if (!mediaPath) return null;
+  const headers = { ...(r.headers || {}) };
+  delete headers['x-csrftoken']; // 재현 시점의 쿠키 값으로 다시 넣음
+  return { kind: 'graphql', url: new URL(r.url).pathname, friendly: r.friendly, docId: params.doc_id, params, mediaPath, headers };
+}
+
+// 클릭 직후 브라우저가 보낸 POST 요청에서 저장/해제 방식을 찾아 기억
 function observe(reqs, pk, action) {
   for (const r of reqs) {
     let p;
@@ -160,9 +196,39 @@ function observe(reqs, pk, action) {
       return { template, isNew };
     }
   }
-  const g = reqs.find((r) => /graphql/.test(r.url));
-  if (g) return { graphql: g.friendly || g.url };
+  const gql = reqs.filter((r) => /graphql/.test(r.url));
+  const m = gql.find((r) => isActionMutation(r.friendly, action));
+  if (m) {
+    const tpl = buildGraphqlTemplate(m, pk);
+    if (!tpl) return { graphql: `${m.friendly} (변수에서 게시물 ID를 찾지 못해 학습 불가)` };
+    const prev = learned[action];
+    const isNew = !prev || prev.kind !== 'graphql' || prev.docId !== tpl.docId || prev.params?.fb_dtsg !== tpl.params.fb_dtsg;
+    learned[action] = tpl;
+    deadTemplates.delete(gqlKey(action));
+    persistLearned();
+    return { graphqlLearned: tpl.friendly, isNew };
+  }
+  if (gql.length) return { graphql: [...new Set(gql.map((r) => r.friendly || r.url))].join(', ') };
   return reqs.length ? { other: reqs.map((r) => r.url.replace('https://www.instagram.com', '')).slice(0, 3).join(', ') } : null;
+}
+
+async function replayGraphql(wc, tpl, pk) {
+  const vars = JSON.parse(tpl.params.variables);
+  setPath(vars, tpl.mediaPath, pk);
+  const form = { ...tpl.params, variables: JSON.stringify(vars) };
+  const r = await igApi(wc, tpl.url, { method: 'POST', form, headers: tpl.headers });
+  const j = r.json;
+  const errs = j?.errors || (j?.error ? [{ message: j.errorSummary || j.errorDescription || String(j.error) }] : null);
+  const msg = errs ? errs.map((e) => e.message || e.description || '').join('; ') : summarizeBody(r);
+  if (r.status === 200 && j?.data && !errs) {
+    const vals = Object.values(j.data);
+    if (vals.length && vals.every((v) => v !== null)) return { ok: true };
+  }
+  if (r.status === 429 || /rate limit|try again later|spam|feedback_required/i.test(msg)) return { final: { status: 'blocked', message: msg } };
+  if (r.status === 401 || /login_required|not logged in/i.test(msg)) return { final: { status: 'logged_out', message: msg } };
+  if (/checkpoint|challenge/i.test(msg)) return { final: { status: 'challenge', message: msg } };
+  if (/not found|unavailable|does not exist|deleted/i.test(msg)) return { final: { status: 'not_found', message: msg } };
+  return { ok: false, message: `GraphQL HTTP ${r.status} ${String(msg).slice(0, 120)}` };
 }
 
 function summarizeBody(r) {
@@ -175,7 +241,16 @@ function summarizeBody(r) {
 async function toggleByApi(wc, code, pk, action) {
   pk = pk || pkFromShortcode(code);
   if (!pk) return { status: 'failed', message: 'media_pk 없음' };
-  const templates = [...new Set([learned[action], `/api/v1/web/save/{pk}/${action}/`, `/api/v1/media/{pk}/${action}/`].filter(Boolean))]
+  const tpl = learned[action];
+  if (tpl && tpl.kind === 'graphql' && !deadTemplates.has(gqlKey(action))) {
+    const g = await replayGraphql(wc, tpl, pk);
+    if (g.ok) return { status: ACTIONS[action].done, message: `api GraphQL ${tpl.friendly}` };
+    if (g.final) return g.final;
+    deadTemplates.add(gqlKey(action)); // 토큰 만료 등 → 클릭으로 처리하며 다시 학습
+    return { status: 'api_unsupported', message: g.message };
+  }
+  const rest = typeof tpl === 'string' ? tpl : null;
+  const templates = [...new Set([rest, `/api/v1/web/save/{pk}/${action}/`, `/api/v1/media/{pk}/${action}/`].filter(Boolean))]
     .filter((t) => !deadTemplates.has(t));
   for (const t of templates) {
     const r = await igApi(wc, t.replace('{pk}', pk), { method: 'POST', form: {} });
@@ -261,6 +336,7 @@ async function runBatch({ wc, csvPath, rows, action, opts, job, log, progress, c
   let actions = 0;
   let consecutiveFail = 0;
   let mode = opts.mode;
+  let apiFailures = 0;
   const seenObs = new Set();
   for (const it of queue) {
     if (job.stopped) break;
@@ -272,7 +348,11 @@ async function runBatch({ wc, csvPath, rows, action, opts, job, log, progress, c
       if (mode === 'api') {
         res = await toggleByApi(wc, it.code, it.pk, action);
         if (res.status === 'api_unsupported') {
-          log('⚠ 사용 가능한 API 주소를 찾지 못해 클릭 모드로 전환합니다. (클릭 성공 시 실제 주소를 학습해 다음부터 API 모드에 사용)');
+          apiFailures++;
+          log(res.message
+            ? `⚠ API 요청 실패 (${res.message}) — 이 항목은 클릭으로 처리하고 요청 형식을 다시 학습합니다.`
+            : '⚠ 사용 가능한 API 방식을 아직 모릅니다 — 클릭으로 처리하면서 실제 요청 형식을 학습합니다.');
+          if (apiFailures >= 3) log('⚠ API 방식이 3번 실패해 이번 실행은 클릭 모드로만 진행합니다.');
           mode = 'click';
         }
       }
@@ -288,10 +368,16 @@ async function runBatch({ wc, csvPath, rows, action, opts, job, log, progress, c
     log(`${it.code}: ${res.status}${res.message ? ' — ' + res.message : ''}`);
     const o = res.observed;
     if (o) {
-      const key = o.template || o.graphql || o.other;
+      const key = o.template || o.graphqlLearned || o.graphql || o.other;
       if (o.template && o.isNew) log(`🔎 API 주소 학습: POST ${o.template} — 다음부터 API 모드에서 사용합니다.`);
-      else if (!o.template && !seenObs.has(key)) log(`🔎 관측된 요청: ${o.graphql ? 'GraphQL ' + o.graphql : o.other}`);
+      else if (o.graphqlLearned && o.isNew) log(`🔎 API 방식 학습: GraphQL ${o.graphqlLearned} — 다음부터 API 모드에서 사용합니다.`);
+      else if (!o.template && !o.graphqlLearned && !seenObs.has(key)) log(`🔎 관측된 요청: ${o.graphql ? 'GraphQL ' + o.graphql : o.other}`);
       seenObs.add(key);
+      // API 모드로 시작했다가 클릭으로 내려왔으면, 방금 학습한 방식으로 복귀
+      if (opts.mode === 'api' && mode === 'click' && (o.template || o.graphqlLearned) && apiFailures < 3) {
+        mode = 'api';
+        log('↩ 학습한 요청 형식으로 API 모드에 복귀합니다.');
+      }
     }
 
     if (FATAL.has(res.status)) {

@@ -11,16 +11,18 @@ async function ensureOnInstagram(wc) {
   if (!isInstagramUrl(wc.getURL())) await wc.loadURL(HOME);
 }
 
-async function igApi(wc, path, { method = 'GET', form = null } = {}) {
+async function igApi(wc, path, { method = 'GET', form = null, headers = null } = {}) {
   await ensureOnInstagram(wc);
   const script = `(async () => {
     const m = document.cookie.match(/(?:^|; )csrftoken=([^;]+)/);
-    const headers = { 'X-IG-App-ID': '${IG_APP_ID}', 'X-Requested-With': 'XMLHttpRequest' };
-    if (m) headers['X-CSRFToken'] = decodeURIComponent(m[1]);
+    const headers = new Headers(${JSON.stringify(headers || {})});
+    headers.set('X-IG-App-ID', '${IG_APP_ID}');
+    headers.set('X-Requested-With', 'XMLHttpRequest');
+    if (m) headers.set('X-CSRFToken', decodeURIComponent(m[1]));
     const init = { method: ${JSON.stringify(method)}, credentials: 'include', headers };
     const form = ${JSON.stringify(form)};
     if (form) {
-      headers['Content-Type'] = 'application/x-www-form-urlencoded';
+      headers.set('Content-Type', 'application/x-www-form-urlencoded');
       init.body = new URLSearchParams(form).toString();
     }
     try {
@@ -32,7 +34,7 @@ async function igApi(wc, path, { method = 'GET', form = null } = {}) {
   })()`;
   const res = await wc.executeJavaScript(script, true);
   let json = null;
-  try { json = JSON.parse(res.text); } catch {}
+  try { json = JSON.parse(String(res.text || '').replace(/^for \(;;\);/, '')); } catch {}
   return { ...res, json };
 }
 
@@ -58,4 +60,4 @@ function shortcodeFromUrl(url) {
   return m ? m[1] : null;
 }
 
-module.exports = { HOME, isInstagramUrl, ensureOnInstagram, igApi, rand, sleep, shortcodeFromUrl };
+module.exports = { HOME, IG_APP_ID, isInstagramUrl, ensureOnInstagram, igApi, rand, sleep, shortcodeFromUrl };

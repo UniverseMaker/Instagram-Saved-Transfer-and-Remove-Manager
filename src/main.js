@@ -52,18 +52,33 @@ function createView(key) {
   });
   const wc = view.webContents;
   // 클릭 시 Instagram이 실제로 보내는 요청을 관찰해 API 주소를 학습하기 위한 기록
+  // GraphQL 요청은 본문과 x-* 헤더까지 기록해 API 모드에서 같은 형식으로 재현한다 (쿠키는 기록하지 않음)
   const reqLog = [];
-  wc.session.webRequest.onBeforeRequest({ urls: ['https://www.instagram.com/*', 'https://i.instagram.com/*'] }, (d, cb) => {
+  const byId = new Map();
+  const filter = { urls: ['https://www.instagram.com/*', 'https://i.instagram.com/*'] };
+  wc.session.webRequest.onBeforeRequest(filter, (d, cb) => {
     if (d.method === 'POST') {
+      let body = '';
       let friendly = '';
       try {
-        const body = d.uploadData?.[0]?.bytes?.toString('utf8') || '';
+        body = (d.uploadData || []).map((u) => (u.bytes ? u.bytes.toString('utf8') : '')).join('');
         friendly = decodeURIComponent((body.match(/fb_api_req_friendly_name=([^&]+)/) || [])[1] || '');
       } catch {}
-      reqLog.push({ t: Date.now(), url: d.url, friendly });
-      if (reqLog.length > 60) reqLog.shift();
+      const entry = { id: d.id, t: Date.now(), url: d.url, friendly, body: /graphql/.test(d.url) ? body : '', headers: {} };
+      reqLog.push(entry);
+      byId.set(d.id, entry);
+      if (reqLog.length > 60) byId.delete(reqLog.shift().id);
     }
     cb({});
+  });
+  wc.session.webRequest.onBeforeSendHeaders(filter, (d, cb) => {
+    const e = byId.get(d.id);
+    if (e) {
+      for (const [k, v] of Object.entries(d.requestHeaders || {})) {
+        if (/^x-/i.test(k)) e.headers[k.toLowerCase()] = v;
+      }
+    }
+    cb({ requestHeaders: d.requestHeaders });
   });
   netLogs[key] = (since) => reqLog.filter((r) => r.t >= since);
   wc.setWindowOpenHandler(({ url }) => {
