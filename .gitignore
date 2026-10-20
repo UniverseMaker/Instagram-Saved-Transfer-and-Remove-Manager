@@ -5,3 +5,4 @@ docs/images/_*
 .DS_Store
 Thumbs.db
 release/
+InstaSavedData/

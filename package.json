@@ -1,7 +1,7 @@
 {
   "name": "insta-saved-migrator",
   "productName": "InstaSavedManager",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Desktop app to export, manage, bulk-unsave, and migrate Instagram saved posts between accounts.",
   "author": "UniverseMaker",
   "license": "MIT",

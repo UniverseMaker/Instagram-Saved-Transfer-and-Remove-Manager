@@ -108,6 +108,7 @@ api.on('job-progress', (p) => {
 });
 api.on('countdown', ({ sec, label }) => { $$('.countdown').forEach((e) => { e.textContent = sec > 0 ? `${label} ${sec}초` : ''; }); });
 api.on('csv-file', showCsvFile);
+api.on('data-dir', (dir) => { $('#data-dir').textContent = dir; $('#data-dir').title = dir; });
 
 function showCsvFile({ path, summary }) {
   csvLoaded = true;
@@ -134,6 +135,7 @@ $$('.stop').forEach((b) => b.addEventListener('click', () => call('stop')));
 $('#clear-log').addEventListener('click', () => { $('#log').innerHTML = ''; });
 
 $('#btn-export').addEventListener('click', () => call('export', active));
+$('#btn-data-dir').addEventListener('click', () => call('open-data-dir'));
 $('#btn-unsave-all').addEventListener('click', async () => {
   const res = await call('unsave-all', { key: active, opts: opts() });
   if (res) applyBatchResult(active, 'unsave', res);

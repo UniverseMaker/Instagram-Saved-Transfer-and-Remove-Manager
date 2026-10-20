@@ -173,7 +173,7 @@ The number of cards per row follows the window width. When you resize, the rows 
 - **선택 항목 저장** (_Save selected_). This is how you move a selection to the other account.
 - **선택 항목 CSV 저장** (_Export selected to CSV_)
 
-Each selection run is written to `Documents\InstaSavedMigrator\jobs\…csv`, so you can resume it later with **CSV 불러오기** (_Load CSV_).
+Each selection run is written to `InstaSavedData\jobs\…csv` next to the app, so you can resume it later with **CSV 불러오기** (_Load CSV_). **📂 작업 폴더 열기** (_Open work folder_) opens that folder.
 
 <img src="docs/images/manager-fetching.png" alt="Loading the list: progress shown at the top" width="100%" />
 
@@ -218,7 +218,7 @@ flowchart LR
     B["Embedded browser<br/>Account B session"]
   end
   IG[("instagram.com")]
-  Disk[("CSV · progress · backups<br/>Documents\\InstaSavedMigrator")]
+  Disk[("CSV · progress · backups<br/>InstaSavedData (next to the exe)")]
 
   UI <-- IPC --> Main
   Main -- "run in page / mouse events" --> A
@@ -249,10 +249,13 @@ sequenceDiagram
 
 ## 📁 Files the app creates
 
+Work files go into an **`InstaSavedData` folder next to the app**: beside the `.exe` for the portable build, or in the install folder for the installer. If that folder isn't writable, `Documents\InstaSavedData` is used instead. The **📂 작업 폴더 열기** (_Open work folder_) button opens it, and the panel shows its full path.
+
 | Location | What |
 |---|---|
-| `Documents\InstaSavedMigrator\backup\saved_<account>_<time>.csv` | Written **every time** a list is loaded. This is your safety net |
-| `Documents\InstaSavedMigrator\jobs\<save\|unsave>_<account>_<time>.csv` | The list of posts for a selection run. Load it again to resume |
+| `InstaSavedData\backup\saved_<account>_<time>.csv` | Written **every time** a list is loaded. This is your safety net |
+| `InstaSavedData\jobs\<save\|unsave>_<account>_<time>.csv` | The list of posts for a selection run. Load it again to resume |
+| `InstaSavedData\exports\` | Default location for **Export to CSV** and **Export selected** |
 | `<csv>.restore-progress.json` / `<csv>.unsave-progress.json` | Per-post progress used for resuming |
 | `<csv>.restore-result.csv` / `<csv>.unsave-result.csv` | Final report with status, message, and time for each post |
 | `%APPDATA%\insta-saved-migrator\` | Browser sessions (your logins) and remembered API addresses. **Log out** in the app to clear a session |
@@ -524,7 +527,7 @@ Automating actions may go against Instagram's Terms of Use and can lead to tempo
 - **선택 항목 저장**: 선택한 것을 다른 계정으로 옮길 때 씁니다
 - **선택 항목 CSV 저장**
 
-선택 작업은 매번 `문서\InstaSavedMigrator\jobs\…csv`로 저장되므로, 나중에 **CSV 불러오기**로 이어서 할 수 있습니다.
+선택 작업은 매번 앱 옆 `InstaSavedData\jobs\…csv`로 저장되므로, 나중에 **CSV 불러오기**로 이어서 할 수 있습니다. **📂 작업 폴더 열기**로 그 폴더를 바로 열 수 있습니다.
 
 <img src="docs/images/manager-fetching.png" alt="목록 불러오는 중: 상단에 진행 상황 표시" width="100%" />
 
@@ -569,7 +572,7 @@ flowchart LR
     B["내장 브라우저<br/>계정 B 세션"]
   end
   IG[("instagram.com")]
-  Disk[("CSV · 진행 상황 · 백업<br/>문서\\InstaSavedMigrator")]
+  Disk[("CSV · 진행 상황 · 백업<br/>InstaSavedData (exe 옆)")]
 
   UI <-- IPC --> Main
   Main -- "페이지 안 실행 / 마우스 이벤트" --> A
@@ -600,10 +603,13 @@ sequenceDiagram
 
 ## 📁 앱이 만드는 파일
 
+작업 파일은 **앱 옆의 `InstaSavedData` 폴더**에 모입니다. portable은 `.exe`가 있는 폴더, 설치형은 설치 폴더 기준입니다. 그 폴더에 쓸 수 없으면 `문서\InstaSavedData`를 씁니다. 패널의 **📂 작업 폴더 열기** 버튼으로 바로 열 수 있고, 패널에 전체 경로도 표시됩니다.
+
 | 위치 | 내용 |
 |---|---|
-| `문서\InstaSavedMigrator\backup\saved_<계정>_<시각>.csv` | 목록을 불러올 **때마다** 자동 저장. 안전장치입니다 |
-| `문서\InstaSavedMigrator\jobs\<save\|unsave>_<계정>_<시각>.csv` | 선택 작업 목록. 다시 불러오면 이어서 진행 |
+| `InstaSavedData\backup\saved_<계정>_<시각>.csv` | 목록을 불러올 **때마다** 자동 저장. 안전장치입니다 |
+| `InstaSavedData\jobs\<save\|unsave>_<계정>_<시각>.csv` | 선택 작업 목록. 다시 불러오면 이어서 진행 |
+| `InstaSavedData\exports\` | **CSV로 내보내기**, **선택 항목 CSV 저장**의 기본 저장 위치 |
 | `<csv>.restore-progress.json` / `<csv>.unsave-progress.json` | 이어하기용 게시물별 진행 상황 |
 | `<csv>.restore-result.csv` / `<csv>.unsave-result.csv` | 게시물별 상태·메시지·시각을 담은 최종 보고서 |
 | `%APPDATA%\insta-saved-migrator\` | 브라우저 세션(로그인 정보)과 기억한 API 주소. 앱의 **로그아웃** 버튼으로 세션 삭제 |

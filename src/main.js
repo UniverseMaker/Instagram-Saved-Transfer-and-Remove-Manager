@@ -7,7 +7,7 @@ const { fetchSaved, writeSavedCsv } = require('./saved');
 const { runBatch, previewCsv, ACTIONS, initApiStore } = require('./runner');
 
 // 개발 실행(npm start)과 빌드된 exe가 같은 로그인 세션을 쓰도록 데이터 경로 고정
-app.setPath('userData', path.join(app.getPath('appData'), 'insta-saved-migrator'));
+app.setPath('userData', process.env.ISM_USER_DATA || path.join(app.getPath('appData'), 'insta-saved-migrator')); // ISM_USER_DATA: 테스트용 분리 경로
 
 // Instagram이 "Electron" UA를 다르게 취급하지 않도록 일반 Chrome UA로 보이게 함
 const appToken = app.getName().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -154,8 +154,27 @@ function stamp(withTime = true) {
   return withTime ? `${day}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}` : day;
 }
 
+// 작업 파일(백업·작업 목록·내보내기)은 실행 파일 옆 InstaSavedData 폴더에 모은다.
+// portable exe는 임시 폴더에 풀려 실행되므로 원래 exe 위치(PORTABLE_EXECUTABLE_DIR)를 쓴다.
+let dataDir = null;
+function resolveDataDir() {
+  const base = process.env.PORTABLE_EXECUTABLE_DIR
+    || (app.isPackaged ? path.dirname(process.execPath) : app.getAppPath());
+  const candidates = [path.join(base, 'InstaSavedData'), path.join(app.getPath('documents'), 'InstaSavedData')];
+  for (const dir of candidates) {
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+      const probe = path.join(dir, '.write-test');
+      fs.writeFileSync(probe, '');
+      fs.unlinkSync(probe);
+      return dir;
+    } catch { /* 쓰기 불가(예: Program Files) → 다음 후보 */ }
+  }
+  return candidates[candidates.length - 1];
+}
+
 function workDir(sub) {
-  const dir = path.join(app.getPath('documents'), 'InstaSavedMigrator', sub);
+  const dir = sub ? path.join(dataDir, sub) : dataDir;
   fs.mkdirSync(dir, { recursive: true });
   return dir;
 }
@@ -266,13 +285,14 @@ handle('logout', async (key) => {
 });
 handle('stop', () => { if (job) { job.stopped = true; log('중지 요청됨 — 현재 단계가 끝나면 멈춥니다.'); } });
 handle('reveal', (p) => shell.showItemInFolder(p));
+handle('open-data-dir', () => shell.openPath(workDir()));
 handle('manager', (open) => setManager(!!open));
 
 handle('export', async (key) => {
   const st = await requireLogin(key);
   const { canceled, filePath } = await dialog.showSaveDialog(win, {
     title: '저장됨 CSV 저장 위치',
-    defaultPath: path.join(app.getPath('documents'), `instagram_saved_${st.username || st.uid}_${stamp(false)}.csv`),
+    defaultPath: path.join(workDir('exports'), `instagram_saved_${st.username || st.uid}_${stamp(false)}.csv`),
     filters: [{ name: 'CSV', extensions: ['csv'] }],
   });
   if (canceled || !filePath) return null;
@@ -294,7 +314,7 @@ handle('list-fetch', (key) => fetchList(key));
 handle('list-open-csv', async () => {
   const { canceled, filePaths } = await dialog.showOpenDialog(win, {
     title: '목록으로 볼 CSV 선택',
-    defaultPath: app.getPath('documents'),
+    defaultPath: workDir(),
     filters: [{ name: 'CSV', extensions: ['csv'] }],
     properties: ['openFile'],
   });
@@ -305,7 +325,7 @@ handle('list-open-csv', async () => {
 handle('save-csv', async ({ rows, name }) => {
   const { canceled, filePath } = await dialog.showSaveDialog(win, {
     title: '선택 항목 CSV 저장',
-    defaultPath: path.join(app.getPath('documents'), name || `instagram_saved_selection_${stamp()}.csv`),
+    defaultPath: path.join(workDir('exports'), name || `instagram_saved_selection_${stamp()}.csv`),
     filters: [{ name: 'CSV', extensions: ['csv'] }],
   });
   if (canceled || !filePath) return null;
@@ -317,7 +337,7 @@ handle('save-csv', async ({ rows, name }) => {
 handle('load-csv', async () => {
   const { canceled, filePaths } = await dialog.showOpenDialog(win, {
     title: '실행할 CSV 선택',
-    defaultPath: app.getPath('documents'),
+    defaultPath: workDir(),
     filters: [{ name: 'CSV', extensions: ['csv'] }],
     properties: ['openFile'],
   });
@@ -361,6 +381,7 @@ handle('unsave-all', async ({ key, opts }) => {
 
 // ---------- App ----------
 app.whenReady().then(() => {
+  dataDir = resolveDataDir();
   initApiStore(path.join(app.getPath('userData'), 'api-endpoints.json'));
   win = new BrowserWindow({
     width: 1480,
@@ -379,6 +400,7 @@ app.whenReady().then(() => {
   win.on('resize', layout);
   win.webContents.on('did-finish-load', () => {
     send('active', active);
+    send('data-dir', dataDir);
     refreshStatus('a');
     refreshStatus('b');
   });

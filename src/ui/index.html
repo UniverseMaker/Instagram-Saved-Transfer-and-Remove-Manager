@@ -41,7 +41,7 @@
         <button id="btn-export" class="lockable">CSV로 내보내기</button>
         <button id="btn-unsave-all" class="danger lockable">전체 저장 해제…</button>
       </div>
-      <p class="hint">오른쪽 화면에서 로그인한 계정 기준으로 동작합니다. 목록을 불러오면 <b>문서\InstaSavedMigrator\backup</b>에 백업 CSV가 자동 저장됩니다.</p>
+      <p class="hint">오른쪽 화면에서 로그인한 계정 기준으로 동작합니다. 목록을 불러오면 작업 폴더의 <b>backup</b>에 백업 CSV가 자동 저장됩니다.</p>
     </section>
 
     <section class="card">
@@ -49,6 +49,10 @@
       <div class="row">
         <button id="btn-load" class="lockable">CSV 불러오기</button>
         <span id="csv-name" class="muted ellipsis">선택된 파일 없음</span>
+      </div>
+      <div class="row">
+        <button id="btn-data-dir" title="백업·작업 목록·내보내기 파일이 모이는 폴더">📂 작업 폴더 열기</button>
+        <span id="data-dir" class="muted ellipsis">실행 파일 옆 InstaSavedData</span>
       </div>
       <div class="stat muted" id="csv-stat"></div>
       <div class="btns">
