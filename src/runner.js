@@ -39,7 +39,13 @@ function probeScript(scroll) {
     const root = document.querySelector('main') || document;
     const all = [...root.querySelectorAll('svg[aria-label]')];
     const svg = all.find(s => OFF.includes(s.getAttribute('aria-label')) || ON.includes(s.getAttribute('aria-label')));
-    if (!svg) return { state: 'loading', labels: [...new Set(all.map(s => s.getAttribute('aria-label')))].slice(0, 15) };
+    if (!svg) {
+      const labels = [...new Set(all.map(s => s.getAttribute('aria-label')))].slice(0, 15);
+      const errIcon = labels.some(l => ['오류', 'Error', 'エラー'].includes(l));
+      if (errIcon || /문제가 발생했습니다|오류가 발생했습니다|Something went wrong|couldn.t load|불러올 수 없습니다/i.test(body))
+        return { state: 'page_error', labels, message: body.replace(/\\s+/g, ' ').trim().slice(0, 120) };
+      return { state: 'loading', labels };
+    }
     const btn = svg.closest('[role="button"],button,a') || svg;
     if (${scroll}) btn.scrollIntoView({ block: 'center', inline: 'center' });
     const r = btn.getBoundingClientRect();
@@ -91,7 +97,15 @@ async function toggleByClick(wc, code, action, job, pk, net) {
   try { await wc.loadURL(`https://www.instagram.com/p/${code}/`); } catch { /* SPA 리다이렉트 시 ERR_ABORTED 무시 */ }
 
   let st = await waitFor(wc, job, 20000, (s) => s.state !== 'loading');
+  if (st.state === 'page_error') {
+    // 일시적인 오류 페이지일 수 있으니 잠시 기다렸다 새로고침
+    await sleep(rand(8000, 15000), job);
+    if (job.stopped) return { status: 'stopped' };
+    wc.reload();
+    st = await waitFor(wc, job, 20000, (s) => s.state !== 'loading');
+  }
   if (job.stopped) return { status: 'stopped' };
+  if (st.state === 'page_error') return { status: 'page_error', message: `인스타그램 오류 페이지 (${st.message || (st.labels || []).join(', ')})` };
   if (st.state === 'loading') return { status: 'failed', message: `저장 버튼을 찾지 못함 (아이콘: ${(st.labels || []).join(', ')})` };
   if (st.state === want) return { status: A.skip };
   if (st.state !== 'on' && st.state !== 'off') return { status: st.state, message: st.message };
@@ -335,6 +349,7 @@ async function runBatch({ wc, csvPath, rows, action, opts, job, log, progress, c
 
   let actions = 0;
   let consecutiveFail = 0;
+  let consecutivePageError = 0;
   let mode = opts.mode;
   let apiFailures = 0;
   const seenObs = new Set();
@@ -387,6 +402,16 @@ async function runBatch({ wc, csvPath, rows, action, opts, job, log, progress, c
       job.error = true;
       break;
     }
+    if (res.status === 'page_error') {
+      if (++consecutivePageError >= 3) {
+        log('⚠ 인스타그램이 게시물 페이지를 연속으로 불러오지 못합니다 — 짧은 시간에 많이 열어 일시적으로 제한된 것일 수 있습니다. 30분~몇 시간 쉬었다가 같은 CSV로 이어서 실행하세요. (이 항목들은 다음 실행 때 다시 시도합니다)');
+        job.error = true;
+        break;
+      }
+      if (!(await sleep(rand(30000, 60000), job, (s) => countdown(s, '오류 페이지 — 잠시 대기')))) break;
+      continue;
+    }
+    consecutivePageError = 0;
     if (res.status === 'failed') {
       if (++consecutiveFail >= 3) { log('⚠ 연속 3회 실패 — 화면 상태를 확인하세요. 중단합니다.'); job.error = true; break; }
     } else consecutiveFail = 0;

@@ -323,6 +323,12 @@ The app finds the bookmark by its accessible label: `저장/삭제` (Korean), `S
 </details>
 
 <details>
+<summary><b><code>page_error</code>, or it stopped saying Instagram can't load post pages</b></summary>
+
+After many posts in a short time, Instagram may show an error page (an "오류" / "Error" icon and no post) instead of the post. The app waits, reloads once, and moves on. After 3 error pages in a row it stops. Take a break of 30 minutes to a few hours, then run the same CSV again. Those posts aren't marked as failed and will be retried.
+</details>
+
+<details>
 <summary><b>It stopped with "blocked" / "Try Again Later"</b></summary>
 
 Instagram has limited the account for now. Wait several hours to a day, then increase the delays and lower **Max per run**. Progress is kept, so the next run continues where this one stopped.
@@ -674,6 +680,12 @@ build/           앱 아이콘
 <summary><b>"저장 버튼을 찾지 못함"</b></summary>
 
 앱은 책갈피 버튼을 접근성 이름으로 찾습니다: `저장/삭제`(한국어), `Save/Remove`(영어), `保存/削除`(일본어). 인스타그램 UI가 다른 언어이거나 이름이 바뀌었다면, 로그 줄에 실제로 찾은 이름들이 표시됩니다. 그 줄을 이슈로 올려주세요.
+</details>
+
+<details>
+<summary><b><code>page_error</code> 또는 "게시물 페이지를 연속으로 불러오지 못합니다"로 멈춤</b></summary>
+
+짧은 시간에 게시물을 많이 열면 인스타그램이 게시물 대신 오류 페이지("오류" 아이콘만 있는 화면)를 보여줄 수 있습니다. 앱은 잠시 기다렸다가 한 번 새로고침해 보고 다음 항목으로 넘어갑니다. 3번 연속이면 멈춥니다. 30분~몇 시간 쉬었다가 같은 CSV로 다시 실행하세요. 해당 항목은 실패로 굳어지지 않고 다시 시도됩니다.
 </details>
 
 <details>
